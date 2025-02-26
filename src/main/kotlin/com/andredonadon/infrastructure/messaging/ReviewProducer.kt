@@ -6,13 +6,12 @@ import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.reactive.messaging.Channel
 import org.eclipse.microprofile.reactive.messaging.Emitter
 
-
 @ApplicationScoped
-class ReviewKafkaProducer(
+class ReviewProducer(
     private val objectMapper: ObjectMapper,
-    @Channel("restaurant-review-saver") private val emitter: Emitter<String>
+    @Channel("reviews") private val emitter: Emitter<String>
 ) {
-    fun send(review: Review) {
+    fun sendReview(review: Review) {
         val json = objectMapper.writeValueAsString(review)
         emitter.send(json)
     }
