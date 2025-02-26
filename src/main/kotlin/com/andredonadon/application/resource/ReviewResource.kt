@@ -3,8 +3,11 @@ package com.andredonadon.application.resource
 import com.andredonadon.application.dto.ReviewDTO
 import com.andredonadon.application.usecase.SaveReviewUseCase
 import com.andredonadon.domain.model.Review
+import com.andredonadon.domain.model.ReviewComment
 import com.andredonadon.domain.repository.ReviewRatingRepository
 import com.andredonadon.domain.service.ReviewCommentService
+import com.andredonadon.infrastructure.cache.ReviewRatingCache
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.smallrye.mutiny.Uni
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
@@ -23,7 +26,9 @@ import java.util.UUID
 class ReviewResource(
     private val reviewRatingRepository: ReviewRatingRepository,
     private val saveReviewUseCase: SaveReviewUseCase,
-    private val reviewCommentService: ReviewCommentService
+    private val reviewCommentService: ReviewCommentService,
+    private val reviewRatingCache: ReviewRatingCache,
+    private val objectMapper: ObjectMapper
 ) {
 
     @POST
@@ -39,10 +44,20 @@ class ReviewResource(
     @GET
     @Path("/{restaurantId}")
     fun getRestaurantRating(@PathParam("restaurantId") restaurantId: UUID): Uni<ReviewRatingResponse> {
-        return reviewRatingRepository.findByRestaurantId(restaurantId)
-            .map { reviewRating ->
-                reviewRating?.let { ReviewRatingResponse(it.totalReviews, it.averageRating) }
-                    ?: ReviewRatingResponse(0, 0.0)
+        return reviewRatingCache.getReviewRating(restaurantId)
+            .flatMap { cached ->
+                if (cached != null) {
+                    Uni.createFrom().item(objectMapper.readValue(cached, ReviewRatingResponse::class.java))
+                } else {
+                    reviewRatingRepository.findByRestaurantId(restaurantId)
+                        .map { reviewRating ->
+                            val response = reviewRating?.let { ReviewRatingResponse(it.totalReviews, it.averageRating) }
+                                ?: ReviewRatingResponse(0, 0.0)
+
+                            reviewRatingCache.setReviewRating(restaurantId, objectMapper.writeValueAsString(response))
+                            response
+                        }
+                }
             }
     }
 
@@ -52,12 +67,11 @@ class ReviewResource(
         @PathParam("restaurantId") restaurantId: UUID,
         @QueryParam("page") page: Int?,
         @QueryParam("quantity") quantity: Int?
-    ): Uni<List<ReviewResponse>> {
+    ): Uni<List<ReviewComment>> {
         val safePage = page ?: 1
         val safeQuantity = quantity ?: 10
 
         return reviewCommentService.listReviews(restaurantId, safePage, safeQuantity)
-            .map { reviews -> reviews.map { ReviewResponse(it) } }
     }
 }
 
