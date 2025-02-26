@@ -1,8 +1,11 @@
 package com.andredonadon.application.dto
 
+import java.util.UUID
+
 data class ReviewDTO(
-    var restaurantId: String,
-    var customerName: String,
-    var rating: Int,
-    var comment: String?,
+    val restaurantId: UUID,
+    val customerId: UUID,
+    val customerName: String,
+    val rating: Int,
+    val comment: String?
 )

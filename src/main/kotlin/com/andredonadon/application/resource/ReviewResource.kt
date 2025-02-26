@@ -1,17 +1,32 @@
 package com.andredonadon.application.resource
 
 import com.andredonadon.application.dto.ReviewDTO
+import com.andredonadon.application.usecase.SaveReviewUseCase
+import io.smallrye.mutiny.Uni
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
+import jakarta.ws.rs.PathParam
+import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+import jakarta.ws.rs.core.Response
+import java.util.UUID
 
 @Path("api/v1/review")
-class ReviewResource {
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+class ReviewResource(
+    private val saveReviewUseCase: SaveReviewUseCase
+) {
 
     @POST
-    @Consumes(MediaType.APPLICATION_JSON)
-    fun saveReview(reviewDTO: ReviewDTO) {
+    @Path("/{restaurantId}")
+    fun saveRestaurantReview(
+        @PathParam("restaurantId") restaurantId: UUID,
+        reviewDTO: ReviewDTO
+    ): Uni<Response> {
+        return saveReviewUseCase.execute(reviewDTO.copy(restaurantId = restaurantId))
+            .map { Response.status(Response.Status.CREATED).build() }
     }
 
 }
